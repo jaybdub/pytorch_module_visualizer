@@ -43,8 +43,10 @@ class ModuleVisualizer2D(ipywidgets.VBox):
     
     module = traitlets.Instance(klass=torch.nn.Module)
     disabled = traitlets.Bool(default_value=False)
+    interval = traitlets.Integer(default_value=1)
     
     def __init__(self, *args, **kwargs):
+        self.count = 0
         self.hook = None
         super(ModuleVisualizer2D, self).__init__(*args, **kwargs)
         self.module_input_widget = ipywidgets.Image()
@@ -80,10 +82,12 @@ class ModuleVisualizer2D(ipywidgets.VBox):
             self.hook = self.module.register_forward_hook(self._visualize)
             
     def _visualize(self, module, input, output):
-        try:
-            a = input[0][0]
-            b = output[0]
-            self.module_input_widget.value = pil_to_jpeg(to_pil_image(make_grid(a)))
-            self.module_output_widget.value = pil_to_jpeg(to_pil_image(make_grid(b)))
-        except:
-            pass
+        if self.count % self.interval == 0:
+            try:
+                a = input[0][0]
+                b = output[0]
+                self.module_input_widget.value = pil_to_jpeg(to_pil_image(make_grid(a)))
+                self.module_output_widget.value = pil_to_jpeg(to_pil_image(make_grid(b)))
+            except:
+                pass
+        self.count += 1
