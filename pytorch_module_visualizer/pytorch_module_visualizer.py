@@ -41,16 +41,14 @@ def make_grid(data, normalize=True):
 
 class ModuleVisualizer2D(ipywidgets.VBox):
     
-    module = traitlets.Instance(klass=torch.nn.Module)
-    disabled = traitlets.Bool(default_value=False)
-    interval = traitlets.Integer(default_value=1)
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, module, width, height):
+        self.module = module
         self.count = 0
         self.hook = None
-        super(ModuleVisualizer2D, self).__init__(*args, **kwargs)
-        self.module_input_widget = ipywidgets.Image()
-        self.module_output_widget = ipywidgets.Image()
+        super(ModuleVisualizer2D, self).__init__()
+        self.module_input_widget = ipywidgets.Image(width=width, height=height)
+        self.module_output_widget = ipywidgets.Image(width=width, height=height)
         self.children = [
             ipywidgets.HBox([self.module_input_widget]),
             ipywidgets.HBox([self.module_output_widget])
@@ -59,35 +57,23 @@ class ModuleVisualizer2D(ipywidgets.VBox):
     def __del__(self):
         if self.hook is not None:
             self.hook.remove()
-
-    @traitlets.observe('module')
-    def _on_module(self, change):
-        # remove hook
+            
+    def __enter__(self, *args, **kwargs):
+        # attach hook for new module
         if self.hook is not None:
             self.hook.remove()
             
-        if not self.disabled:
-            # attach hook for new module
-            self.hook = change['new'].register_forward_hook(self._visualize)
-    
-    @traitlets.observe('disabled')
-    def _on_disabled(self, change):
+        self.hook = self.module.register_forward_hook(self._visualize)
         
-        # remove hook
+    def __exit__(self, *args, **kwargs):
         if self.hook is not None:
             self.hook.remove()
-        
-        # re-attach hook if not disabled
-        if not change['new']:
-            self.hook = self.module.register_forward_hook(self._visualize)
             
     def _visualize(self, module, input, output):
-        if self.count % self.interval == 0:
-            try:
-                a = input[0][0]
-                b = output[0]
-                self.module_input_widget.value = pil_to_jpeg(to_pil_image(make_grid(a)))
-                self.module_output_widget.value = pil_to_jpeg(to_pil_image(make_grid(b)))
-            except:
-                pass
-        self.count += 1
+        try:
+            a = input[0][0]
+            b = output[0]
+            self.module_input_widget.value = pil_to_jpeg(to_pil_image(make_grid(a)))
+            self.module_output_widget.value = pil_to_jpeg(to_pil_image(make_grid(b)))
+        except:
+            pass
